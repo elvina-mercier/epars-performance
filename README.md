@@ -1,1 +1,652 @@
 # epars-performance
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPARS — Rapport de performance Vocca</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --primary: #6366f1;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --neutral: #94a3b8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+  /* HEADER */
+  .header { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; padding: 32px 40px; display: flex; align-items: center; gap: 20px; }
+  .logo { width: 52px; height: 52px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; letter-spacing: -1px; }
+  .header-info h1 { font-size: 24px; font-weight: 700; }
+  .header-info p { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+  .header-badge { margin-left: auto; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 8px 16px; text-align: right; font-size: 12px; }
+  .header-badge strong { display: block; font-size: 14px; }
+
+  /* LAYOUT */
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  .section { margin-bottom: 40px; }
+  .section-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; width: 4px; height: 20px; background: var(--primary); border-radius: 2px; display: inline-block; }
+
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 16px; text-align: center; }
+  .kpi-value { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 6px; }
+  .kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+  .kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .kpi-primary .kpi-value { color: var(--primary); }
+  .kpi-success .kpi-value { color: var(--success); }
+  .kpi-warning .kpi-value { color: var(--warning); }
+  .kpi-star .kpi-value { color: var(--warning); }
+  .kpi-neutral .kpi-value { color: var(--text-muted); }
+
+  /* CHARTS */
+  .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .chart-grid-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; }
+  .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .chart-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .chart-canvas-wrap { position: relative; }
+
+  /* FUNNEL */
+  .funnel-wrap { display: flex; flex-direction: column; gap: 8px; }
+  .funnel-step { display: flex; align-items: center; gap: 12px; }
+  .funnel-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 6px; height: 36px; overflow: hidden; position: relative; }
+  .funnel-bar { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: 10px; transition: width 0.5s; }
+  .funnel-label { width: 280px; font-size: 12px; color: var(--text); font-weight: 500; flex-shrink: 0; }
+  .funnel-pct { width: 48px; font-size: 13px; font-weight: 700; color: var(--text); text-align: right; flex-shrink: 0; }
+  .funnel-note { font-size: 11px; color: var(--text-muted); margin-top: 2px; padding-left: 292px; line-height: 1.4; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-open { background: #d1fae5; color: #065f46; }
+  .badge-task { background: #fef3c7; color: #92400e; }
+  .badge-unavailable { background: #f1f5f9; color: var(--text-muted); }
+
+  /* LEVERS */
+  .lever-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .lever { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; border-top: 3px solid var(--primary); }
+  .lever-icon { font-size: 24px; margin-bottom: 10px; }
+  .lever-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+  .lever-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+  .lever-tag { display: inline-block; margin-top: 10px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: #ede9fe; color: #6d28d9; }
+  .lever-warning { border-top-color: var(--warning); }
+  .lever-warning .lever-tag { background: #fef3c7; color: #92400e; }
+  .lever-success { border-top-color: var(--success); }
+  .lever-success .lever-tag { background: #d1fae5; color: #065f46; }
+
+  /* INFO BOX */
+  .info-box { background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #5b21b6; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px; }
+  .info-box-warn { background: #fef9c3; border-color: #fde68a; color: #92400e; }
+  .info-box-success { background: #dcfce7; border-color: #bbf7d0; color: #166534; }
+  .info-box-danger { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+
+  /* MOTIVE CONFIG */
+  .motive-config { display: flex; gap: 12px; margin-bottom: 20px; }
+  .motive-pill { flex: 1; border-radius: 10px; padding: 14px; text-align: center; }
+  .motive-pill-open { background: #d1fae5; }
+  .motive-pill-task { background: #fef3c7; }
+  .motive-pill-unavail { background: #f1f5f9; }
+  .motive-pill-num { font-size: 28px; font-weight: 800; }
+  .motive-pill-open .motive-pill-num { color: #059669; }
+  .motive-pill-task .motive-pill-num { color: #d97706; }
+  .motive-pill-unavail .motive-pill-num { color: var(--text-muted); }
+  .motive-pill-label { font-size: 11px; font-weight: 600; text-transform: uppercase; margin-top: 2px; color: var(--text-muted); }
+
+  /* INSIGHT BOXES */
+  .insight-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .insight { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .insight-label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .insight-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .insight-text strong { color: var(--primary); }
+
+  /* FOOTER */
+  .footer { text-align: center; color: var(--text-muted); font-size: 12px; padding: 32px 0 40px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">V</div>
+  <div class="header-info">
+    <h1>Cabinet Dentaire des Épars — EPARS</h1>
+    <p>Rapport de performance Vocca · Dentaire · 23 mars – 26 juin 2026 (14 semaines)</p>
+  </div>
+  <div class="header-badge">
+    <span>Généré le 26/06/2026</span>
+    <strong>Vocca Analytics</strong>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- SECTION 1 : VUE D'ENSEMBLE -->
+  <div class="section">
+    <div class="section-title">Vue d'ensemble</div>
+
+    <div class="info-box info-box-success">
+      ✅ <strong>Pas de débordement actif.</strong> EPARS fonctionne en mode full-autonomie : aucun appel transféré en direct (nb_calls_forwarded = 0). Vocca gère l'intégralité des appels entrants.
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi kpi-neutral">
+        <div class="kpi-value">717</div>
+        <div class="kpi-label">Appels reçus</div>
+        <div class="kpi-sub">14 semaines</div>
+      </div>
+      <div class="kpi kpi-primary">
+        <div class="kpi-value">86,9%</div>
+        <div class="kpi-label">Taux d'automatisation</div>
+        <div class="kpi-sub">623 appels autonomes</div>
+      </div>
+      <div class="kpi kpi-success">
+        <div class="kpi-value">16</div>
+        <div class="kpi-label">RDV pris par Vocca</div>
+        <div class="kpi-sub">dont 9 hors horaires</div>
+      </div>
+      <div class="kpi kpi-warning">
+        <div class="kpi-value">23,5%</div>
+        <div class="kpi-label">Taux de transformation</div>
+        <div class="kpi-sub">16 / 68 appels booking</div>
+      </div>
+      <div class="kpi kpi-star">
+        <div class="kpi-value">★ 4,27</div>
+        <div class="kpi-label">Satisfaction CSAT</div>
+        <div class="kpi-sub">15 réponses</div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-title">Évolution hebdomadaire — Appels &amp; taux d'automatisation</div>
+      <div class="chart-canvas-wrap" style="height:260px">
+        <canvas id="chartWeekly"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2 : MOTIFS D'APPELS -->
+  <div class="section">
+    <div class="section-title">Motifs d'appels</div>
+    <div class="chart-wrap">
+      <div class="chart-title">Répartition des intentions d'appels</div>
+      <div class="chart-canvas-wrap" style="height:260px">
+        <canvas id="chartMotifs"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3 : STATISTIQUES SUR LES RDV -->
+  <div class="section">
+    <div class="section-title">Statistiques sur les rendez-vous</div>
+
+    <div class="kpi-grid" style="grid-template-columns: repeat(3,1fr); margin-bottom:20px;">
+      <div class="kpi kpi-success">
+        <div class="kpi-value">16</div>
+        <div class="kpi-label">RDV pris par Vocca</div>
+        <div class="kpi-sub">sur 68 appels booking</div>
+      </div>
+      <div class="kpi kpi-warning">
+        <div class="kpi-value">23,5%</div>
+        <div class="kpi-label">Taux de transformation</div>
+        <div class="kpi-sub">objectif : ↑ voir leviers</div>
+      </div>
+      <div class="kpi kpi-primary">
+        <div class="kpi-value">9 / 16</div>
+        <div class="kpi-label">RDV hors horaires</div>
+        <div class="kpi-sub">56,3% — valeur directe Vocca</div>
+      </div>
+    </div>
+
+    <div class="info-box info-box-success">
+      🌙 <strong>56% des RDV sont pris hors heures d'ouverture.</strong> C'est la valeur la plus directe de Vocca : sans le bot, ces 9 RDV auraient été perdus.
+    </div>
+
+    <div class="chart-grid-2" style="margin-bottom:20px;">
+      <div class="chart-wrap">
+        <div class="chart-title">RDV pris par motif</div>
+        <table>
+          <thead><tr><th>Motif</th><th>Statut</th><th style="text-align:right">RDV pris</th></tr></thead>
+          <tbody>
+            <tr><td>Consultation dentaire</td><td><span class="badge badge-open">OUVERT</span></td><td style="text-align:right;font-weight:700">6</td></tr>
+            <tr><td>Consultation enfant</td><td><span class="badge badge-open">OUVERT</span></td><td style="text-align:right;font-weight:700">3</td></tr>
+            <tr><td>Devis pour prothèse dentaire</td><td><span class="badge badge-open">OUVERT</span></td><td style="text-align:right;font-weight:700">2</td></tr>
+            <tr><td>Première consultation d'implantologie</td><td><span class="badge badge-open">OUVERT</span></td><td style="text-align:right;font-weight:700">2</td></tr>
+            <tr><td>Urgence dentaire</td><td><span class="badge badge-open">OUVERT</span></td><td style="text-align:right;font-weight:700">2</td></tr>
+            <tr><td>Détartrage</td><td><span class="badge badge-open">OUVERT</span></td><td style="text-align:right;font-weight:700">1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="motive-config">
+          <div class="motive-pill motive-pill-open">
+            <div class="motive-pill-num">9</div>
+            <div class="motive-pill-label">Motifs ouverts</div>
+          </div>
+          <div class="motive-pill motive-pill-task">
+            <div class="motive-pill-num">14</div>
+            <div class="motive-pill-label">Motifs en tâche</div>
+          </div>
+          <div class="motive-pill motive-pill-unavail">
+            <div class="motive-pill-num">6</div>
+            <div class="motive-pill-label">Indisponibles</div>
+          </div>
+        </div>
+        <div class="info-box info-box-warn">
+          ⚠️ <strong>14 motifs configurés en tâche</strong> sur 29 — soit 48% du catalogue. Beaucoup de demandes légitimes (scellement, extraction, taille et empreinte, caries complexes) génèrent systématiquement une tâche au lieu d'un RDV autonome. C'est un frein majeur au taux de transformation.
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-title">Évolution hebdomadaire — RDV pris &amp; taux de transformation</div>
+      <div class="chart-canvas-wrap" style="height:220px">
+        <canvas id="chartRdvWeekly"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4 : POURQUOI LES APPELS N'ABOUTISSENT PAS -->
+  <div class="section">
+    <div class="section-title">Pourquoi les appels et les RDV n'aboutissent-ils pas ?</div>
+
+    <!-- Insights qualitatifs -->
+    <div class="insight-grid">
+      <div class="insight">
+        <div class="insight-label">💬 Abandon étape 1 (40,7%)</div>
+        <div class="insight-text">Appels vides, patients qui demandent <strong>"l'accueil"</strong> ou un praticien inconnu (ex : "Mme Chaillot"), ou incompréhension du bot. Beaucoup de raccrochers immédiats sans interaction vocale.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-label">🦷 Abandons étapes 3–4 (14,8%)</div>
+        <div class="insight-text">Motifs TO_TASK détectés en cours d'appel : <strong>implant dentaire</strong>, <strong>scellement</strong>, <strong>carie complexe</strong>. Le patient demande un RDV, le bot propose une tâche — friction et raccrochage.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-label">📅 Abandons étape 5 (37%)</div>
+        <div class="insight-text">Ces abandons sont liés à l'<strong>absence de créneaux disponibles</strong> : le patient arrive jusqu'à la confirmation mais ne trouve pas de disponibilité adaptée et raccroche sans prendre RDV.</div>
+      </div>
+    </div>
+
+    <!-- Funnel drop booking -->
+    <div class="chart-wrap">
+      <div class="chart-title">Entonnoir d'abandon — Appels avec intention de prise de RDV</div>
+      <div class="funnel-wrap" style="margin-top:8px;">
+
+        <div>
+          <div class="funnel-step">
+            <div class="funnel-label">Étape 1 — Identification patient</div>
+            <div class="funnel-bar-wrap">
+              <div class="funnel-bar" style="width:40.7%;background:#6366f1;"></div>
+            </div>
+            <div class="funnel-pct">40,7%</div>
+          </div>
+          <div class="funnel-note">Appels vides, demande d'accueil, praticien inconnu, incompréhension dès l'accueil</div>
+        </div>
+
+        <div>
+          <div class="funnel-step">
+            <div class="funnel-label">Étape 2 — Collecte d'identité</div>
+            <div class="funnel-bar-wrap">
+              <div class="funnel-bar" style="width:7.4%;background:#818cf8;"></div>
+            </div>
+            <div class="funnel-pct">7,4%</div>
+          </div>
+          <div class="funnel-note">Épellation longue, patient non trouvé dans le système, friction sur la date de naissance</div>
+        </div>
+
+        <div>
+          <div class="funnel-step">
+            <div class="funnel-label">Étape 3 — Sélection du motif</div>
+            <div class="funnel-bar-wrap">
+              <div class="funnel-bar" style="width:11.1%;background:#a5b4fc;"></div>
+            </div>
+            <div class="funnel-pct">11,1%</div>
+          </div>
+          <div class="funnel-note">Motifs TO_TASK (implant, scellement) : le patient refuse la tâche et raccroche</div>
+        </div>
+
+        <div>
+          <div class="funnel-step">
+            <div class="funnel-label">Étape 4 — Sélection des disponibilités</div>
+            <div class="funnel-bar-wrap">
+              <div class="funnel-bar" style="width:3.7%;background:#c7d2fe;"></div>
+            </div>
+            <div class="funnel-pct">3,7%</div>
+          </div>
+          <div class="funnel-note">Aucun créneau disponible, praticien spécifique demandé (Dr Sayag le matin)</div>
+        </div>
+
+        <div>
+          <div class="funnel-step">
+            <div class="funnel-label">Étape 5 — Confirmation / CSAT</div>
+            <div class="funnel-bar-wrap">
+              <div class="funnel-bar" style="width:37%;background:#e0e7ff;"></div>
+            </div>
+            <div class="funnel-pct" style="color:#ef4444;">37%</div>
+          </div>
+          <div class="funnel-note" style="color:#ef4444;font-weight:500;">❌ Aucun créneau disponible au moment de l'appel : le patient est allé jusqu'à la confirmation mais n'a pas trouvé de disponibilité adaptée et a raccroché.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5 : TÂCHES CRÉÉES -->
+  <div class="section">
+    <div class="section-title">Tâches créées</div>
+
+    <div class="kpi-grid" style="grid-template-columns: repeat(3,1fr); margin-bottom:20px;">
+      <div class="kpi kpi-neutral">
+        <div class="kpi-value">94</div>
+        <div class="kpi-label">Tâches créées</div>
+        <div class="kpi-sub">13,1% des appels</div>
+      </div>
+      <div class="kpi kpi-danger" style="--danger:#ef4444">
+        <div class="kpi-value" style="color:#ef4444;">114h55</div>
+        <div class="kpi-label">Délai moyen complétion</div>
+        <div class="kpi-sub">impacté par les débuts</div>
+      </div>
+      <div class="kpi kpi-warning">
+        <div class="kpi-value">45,7%</div>
+        <div class="kpi-label">Complétées le jour même</div>
+        <div class="kpi-sub">en amélioration récente</div>
+      </div>
+    </div>
+
+    <div class="info-box info-box-danger">
+      🚨 <strong>Les 5 premières semaines (23 mars – 20 avril), le taux de complétion était 0%</strong> avec des délais allant jusqu'à 473 heures (19 jours !). Depuis fin avril, la situation s'est améliorée significativement : 72–100% de complétion le jour même. Ce problème semble résolu mais le délai moyen global reste pénalisé par cette période.
+    </div>
+
+    <div class="chart-grid-2" style="margin-bottom:20px;">
+      <div class="chart-wrap">
+        <div class="chart-title">Évolution hebdomadaire — Tâches &amp; complétion J+0</div>
+        <div class="chart-canvas-wrap" style="height:220px">
+          <canvas id="chartTasksWeekly"></canvas>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Répartition par catégorie</div>
+        <div class="chart-canvas-wrap" style="height:220px">
+          <canvas id="chartTasksDonut"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-title">Analyse des causes de création de tâches</div>
+      <div style="display:flex;gap:20px;align-items:flex-start;margin-top:8px;">
+        <div style="flex:1">
+          <table>
+            <thead><tr><th>Catégorie</th><th style="text-align:right">Tâches</th><th style="text-align:right">%</th><th>Nature</th></tr></thead>
+            <tbody>
+              <tr><td>Urgence</td><td style="text-align:right;font-weight:700">24</td><td style="text-align:right">25,5%</td><td><span class="badge" style="background:#fee2e2;color:#991b1b">Légitime</span></td></tr>
+              <tr><td>Rappel (callback)</td><td style="text-align:right;font-weight:700">24</td><td style="text-align:right">25,5%</td><td><span class="badge" style="background:#fef3c7;color:#92400e">Partiel</span></td></tr>
+              <tr><td>Rendez-vous (modification)</td><td style="text-align:right;font-weight:700">23</td><td style="text-align:right">24,5%</td><td><span class="badge" style="background:#fef3c7;color:#92400e">Motifs TO_TASK</span></td></tr>
+              <tr><td>Annulation</td><td style="text-align:right;font-weight:700">8</td><td style="text-align:right">8,5%</td><td><span class="badge" style="background:#fef3c7;color:#92400e">Partiel</span></td></tr>
+              <tr><td>Facturation / Devis</td><td style="text-align:right;font-weight:700">7</td><td style="text-align:right">7,4%</td><td><span class="badge" style="background:#fee2e2;color:#991b1b">Légitime</span></td></tr>
+              <tr><td>Professionnel de santé</td><td style="text-align:right;font-weight:700">3</td><td style="text-align:right">3,2%</td><td><span class="badge" style="background:#f1f5f9;color:#64748b">Hors périmètre</span></td></tr>
+              <tr><td>Retard médecin</td><td style="text-align:right;font-weight:700">2</td><td style="text-align:right">2,1%</td><td><span class="badge" style="background:#d1fae5;color:#065f46">Évitable</span></td></tr>
+              <tr><td>Autre / Email</td><td style="text-align:right;font-weight:700">3</td><td style="text-align:right">3,2%</td><td><span class="badge" style="background:#f1f5f9;color:#64748b">Divers</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="width:200px;">
+          <div class="info-box" style="margin-bottom:8px;">
+            <div><strong>75 tâches</strong> sur PATIENT_REQUEST<br><strong>3 tâches</strong> sur MOTIVE_BLOCKED</div>
+          </div>
+          <div class="info-box info-box-warn">
+            Les tâches "Rendez-vous" (24,5%) sont principalement dues aux <strong>14 motifs TO_TASK</strong> : scellement, extraction dentaire, taille &amp; empreinte. Une revue de config pourrait en réduire une partie.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 6 : LEVIERS -->
+  <div class="section">
+    <div class="section-title">Leviers d'amélioration</div>
+
+    <!-- Levier principal -->
+    <div style="margin-bottom:20px;">
+      <div class="lever" style="border-top:3px solid #6366f1; display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="lever-icon" style="margin-bottom:0;">🚀</div>
+          <div>
+            <div class="lever-title" style="font-size:16px;">Levier principal — Passer en mode frontal</div>
+            <span class="lever-tag" style="margin-top:4px;">Impact majeur · Structurel</span>
+          </div>
+        </div>
+        <div class="lever-desc" style="font-size:13px;line-height:1.6;">
+          EPARS est actuellement en mode <strong>full-autonomie sans débordement</strong> : Vocca gère 100% des appels, mais n'a pas accès au transfert vers le secrétariat. En passant en <strong>mode frontal</strong>, Vocca pourrait transférer en direct les appels à fort enjeu (urgences, cas complexes, patients perdus à l'identification) plutôt que de créer une tâche ou raccrocher. Résultat attendu : réduction significative des 37% d'abandons étape 5 liés aux créneaux indisponibles, et meilleure prise en charge des urgences dentaires hors horaires.
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick wins -->
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Quick wins</div>
+    <div class="lever-grid" style="grid-template-columns: 1fr 1fr; gap:16px;">
+
+      <div class="lever">
+        <div class="lever-icon">🎙️</div>
+        <div class="lever-title">Ajouter un message d'accueil vocal</div>
+        <div class="lever-desc">40,7% des abandons booking ont lieu dès l'étape 1. Un pré-décroché présentant Vocca et ses capacités (prise de RDV, annulation, horaires) réduirait les incompréhensions et les raccrochers immédiats dès l'entrée.</div>
+        <span class="lever-tag">Impact moyen · Court terme</span>
+      </div>
+
+      <div class="lever lever-success">
+        <div class="lever-icon">📅</div>
+        <div class="lever-title">Liste d'attente (disponible sept. 2026)</div>
+        <div class="lever-desc">37% des abandons étape 5 sont dus à l'absence de créneaux disponibles. La liste d'attente permettra de capturer ces demandes perdues — notamment urgences et Dr Sayag le matin — et de les rappeler dès qu'un créneau se libère.</div>
+        <span class="lever-tag">Impact fort · Septembre 2026</span>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Rapport généré par Vocca Analytics · Cabinet Dentaire des Épars · Données du 23/03/2026 au 26/06/2026
+</div>
+
+<script>
+// ===== DATA =====
+const weeks = ['23 Mar','30 Mar','6 Avr','13 Avr','20 Avr','27 Avr','4 Mai','11 Mai','18 Mai','25 Mai','1 Juin','8 Juin','15 Juin','22 Juin'];
+const weeksReversed = [...weeks].reverse();
+
+const nbCalls = [77,110,38,61,32,62,56,35,27,88,49,29,26,27];
+const autoRate = [93.51,93.64,84.21,90.16,62.5,87.1,80.36,80,88.89,87.5,87.76,86.21,92.31,77.78];
+
+const rdvBookingCalls = [28,6,4,2,6,1,4,5,0,4,2,1,3,2];
+const rdvPris = [7,3,0,1,2,0,1,0,0,0,0,1,1,0];
+const transfoRate = [25,50,0,50,33.33,0,25,0,null,0,0,100,33.33,0];
+
+const tasksCounts = [5,7,6,6,12,8,11,7,3,11,6,4,2,6];
+const taskCompletion = [0,0,0,0,0,75,72.7,57.1,100,72.7,50,100,100,83.3];
+
+// ===== CHART 1: Weekly calls + automation rate =====
+const ctx1 = document.getElementById('chartWeekly').getContext('2d');
+new Chart(ctx1, {
+  data: {
+    labels: weeksReversed,
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Appels reçus',
+        data: nbCalls,
+        backgroundColor: '#c7d2fe',
+        yAxisID: 'y',
+        order: 2,
+        borderRadius: 4,
+      },
+      {
+        type: 'line',
+        label: "Taux d'automatisation (%)",
+        data: autoRate,
+        borderColor: '#6366f1',
+        backgroundColor: 'transparent',
+        pointBackgroundColor: '#6366f1',
+        tension: 0.3,
+        yAxisID: 'y2',
+        order: 1,
+        pointRadius: 4,
+        borderWidth: 2,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index' },
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+    scales: {
+      y: { type: 'linear', position: 'left', beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
+      y2: { type: 'linear', position: 'right', min: 50, max: 100, grid: { drawOnChartArea: false }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
+      x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+    }
+  }
+});
+
+// ===== CHART 2: Motifs =====
+const ctx2 = document.getElementById('chartMotifs').getContext('2d');
+new Chart(ctx2, {
+  type: 'bar',
+  data: {
+    labels: ['Demande d\'info / abandon d\'appel', 'Prise de RDV', 'Questions', 'Demande transfert', 'Annulation', 'Modification', 'Bienvenue/test', 'Retard médecin', 'Confirmation'],
+    datasets: [{
+      data: [76.0, 9.5, 5.4, 1.7, 2.2, 2.0, 2.8, 0.3, 0.1],
+      backgroundColor: ['#c7d2fe','#6366f1','#818cf8','#a5b4fc','#e0e7ff','#e0e7ff','#e0e7ff','#fcd34d','#e0e7ff'],
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { callback: v => v + '%', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+      y: { ticks: { font: { size: 11 } }, grid: { display: false } }
+    }
+  }
+});
+
+
+// ===== CHART 4: RDV Weekly =====
+const ctx4 = document.getElementById('chartRdvWeekly').getContext('2d');
+new Chart(ctx4, {
+  data: {
+    labels: weeksReversed,
+    datasets: [
+      {
+        type: 'bar',
+        label: 'RDV pris',
+        data: rdvPris,
+        backgroundColor: '#6ee7b7',
+        yAxisID: 'y',
+        order: 2,
+        borderRadius: 4,
+      },
+      {
+        type: 'line',
+        label: 'Taux de transformation (%)',
+        data: transfoRate,
+        borderColor: '#10b981',
+        backgroundColor: 'transparent',
+        pointBackgroundColor: '#10b981',
+        tension: 0.3,
+        yAxisID: 'y2',
+        order: 1,
+        pointRadius: 4,
+        borderWidth: 2,
+        spanGaps: true,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index' },
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+    scales: {
+      y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+      y2: { type: 'linear', position: 'right', min: 0, max: 110, grid: { drawOnChartArea: false }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
+      x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+    }
+  }
+});
+
+
+// ===== CHART 6: Tasks Weekly =====
+const ctx6 = document.getElementById('chartTasksWeekly').getContext('2d');
+new Chart(ctx6, {
+  data: {
+    labels: weeksReversed,
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Tâches créées',
+        data: tasksCounts,
+        backgroundColor: '#fcd34d',
+        yAxisID: 'y',
+        order: 2,
+        borderRadius: 4,
+      },
+      {
+        type: 'line',
+        label: 'Complétées J+0 (%)',
+        data: taskCompletion,
+        borderColor: '#f59e0b',
+        backgroundColor: 'transparent',
+        pointBackgroundColor: '#f59e0b',
+        tension: 0.3,
+        yAxisID: 'y2',
+        order: 1,
+        pointRadius: 4,
+        borderWidth: 2,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index' },
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+    scales: {
+      y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+      y2: { type: 'linear', position: 'right', min: 0, max: 110, grid: { drawOnChartArea: false }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
+      x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+    }
+  }
+});
+
+// ===== CHART 7: Tasks Donut =====
+const ctx7 = document.getElementById('chartTasksDonut').getContext('2d');
+new Chart(ctx7, {
+  type: 'doughnut',
+  data: {
+    labels: ['Urgence', 'Rappel', 'Rendez-vous', 'Annulation', 'Facturation', 'Prof. santé', 'Retard médecin', 'Autre/Email'],
+    datasets: [{
+      data: [24, 24, 23, 8, 7, 3, 2, 3],
+      backgroundColor: ['#ef4444', '#f59e0b', '#6366f1', '#a5b4fc', '#fcd34d', '#94a3b8', '#86efac', '#e0e7ff'],
+      borderWidth: 0,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+    },
+    cutout: '60%'
+  }
+});
+</script>
+</body>
+</html>
